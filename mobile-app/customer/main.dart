@@ -1,95 +1,52 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
-void main() {
-  runApp(const CustomerApp());
-}
-
-class CustomerApp extends StatelessWidget {
-  const CustomerApp({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Ojek Online Customer',
-      theme: ThemeData(
-        primarySwatch: Colors.green,
-      ),
-      home: const OrderScreen(),
-    );
-  }
-}
+void main() => runApp(const MaterialApp(home: OrderScreen()));
 
 class OrderScreen extends StatefulWidget {
-  const OrderScreen({Key? key}) : super(key: key);
-
+  const OrderScreen({super.key});
   @override
   _OrderScreenState createState() => _OrderScreenState();
 }
 
 class _OrderScreenState extends State<OrderScreen> {
-  final TextEditingController _pickupController = TextEditingController();
-  final TextEditingController _destinationController = TextEditingController();
+  final _pickupController = TextEditingController();
+  final _destController = TextEditingController();
 
-  void _pesanOjek() {
-    // Di sini nanti kita sambungkan ke API backend http://localhost:3000/api/order
-    String pickup = _pickupController.text;
-    String destination = _destinationController.text;
+  // Ganti IP ini dengan IP lokal WiFi-mu (cek pakai perintah 'ifconfig' di Termux)
+  // Contoh: http://192.168.1.5:3000/api/order
+  final String apiUrl = "http://10.0.2.2:3000/api/order"; 
 
-    if (pickup.isEmpty || destination.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Lokasi jemput dan tujuan harus diisi!')),
-      );
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Mencari driver dari $pickup ke $destination...')),
+  Future<void> _pesanOjek() async {
+    final response = await http.post(
+      Uri.parse(apiUrl),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "customerId": "12345",
+        "pickup": _pickupController.text,
+        "destination": _destController.text,
+      }),
     );
+
+    if (response.statusCode == 201) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Order berhasil dikirim!')));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gagal kirim order')));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Pesan Ojek Online'),
-      ),
+      appBar: AppBar(title: const Text('Pesan Ojek')),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            TextField(
-              controller: _pickupController,
-              decoration: const InputDecoration(
-                labelText: 'Lokasi Penjemputan',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.my_location),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _destinationController,
-              decoration: const InputDecoration(
-                labelText: 'Lokasi Tujuan',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.location_on),
-              ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _pesanOjek,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                ),
-                child: const Text(
-                  'Pesan Sekarang',
-                  style: TextStyle(fontSize: 16, color: Colors.white),
-                ),
-              ),
-            ),
+            TextField(controller: _pickupController, decoration: const InputDecoration(labelText: 'Jemput')),
+            TextField(controller: _destController, decoration: const InputDecoration(labelText: 'Tujuan')),
+            ElevatedButton(onPressed: _pesanOjek, child: const Text('Pesan Sekarang')),
           ],
         ),
       ),
