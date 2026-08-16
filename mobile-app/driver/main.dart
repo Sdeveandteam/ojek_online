@@ -1,56 +1,73 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
-void main() {
-  runApp(const DriverApp());
-}
-
-class DriverApp extends StatelessWidget {
-  const DriverApp({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Ojek Online Driver',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
-      home: const DriverScreen(),
-    );
-  }
-}
+void main() => runApp(const MaterialApp(home: DriverScreen()));
 
 class DriverScreen extends StatefulWidget {
-  const DriverScreen({Key? key}) : super(key: key);
-
+  const DriverScreen({super.key});
   @override
   _DriverScreenState createState() => _DriverScreenState();
 }
 
 class _DriverScreenState extends State<DriverScreen> {
-  // Simulasi daftar order masuk dari customer
-  final List<Map<String, String>> _incomingOrders = [
-    {
-      'orderId': '1786884424687',
-      'pickup': 'Stasiun Tulungagung',
-      'destination': 'Alun-Alun Tulungagung'
-    }
-  ];
+  List _incomingOrders = [];
+  
+  // Gunakan IP 10.0.2.2 untuk emulator, atau IP lokal PC jika di HP fisik
+  final String fetchUrl = "http://10.0.2.2:3000/api/orders";
+  final String acceptUrl = "http://10.0.2.2:3000/api/accept-order";
 
-  void _terimaOrder(String orderId) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Order $orderId diterima! Menuju lokasi jemput...')),
+  @override
+  void initState() {
+    super.initState();
+    _fetchOrders();
+  }
+
+  // Ambil daftar pesanan dari backend
+  Future<void> _fetchOrders() async {
+    try {
+      final response = await http.get(Uri.parse(fetchUrl));
+      if (response.statusCode == 200) {
+        setState(() {
+          _incomingOrders = jsonDecode(response.body);
+        });
+      }
+    } catch (e) {
+      print("Error fetching orders: $e");
+    }
+  }
+
+  // Terima pesanan tertentu
+  Future<void> _terimaOrder(String orderId) async {
+    final response = await http.post(
+      Uri.parse(acceptUrl),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({"orderId": orderId, "driverId": "driver_999"}),
     );
+
+    if (response.statusCode == 200) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Order berhasil diambil!')),
+      );
+      _fetchOrders(); // Refresh daftar order
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Gagal mengambil order')),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Driver Dashboard - Cari Order'),
+        title: const Text('Dashboard Driver'),
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchOrders)
+        ],
       ),
       body: _incomingOrders.isEmpty
-          ? const Center(child: Text('Belum ada pesanan masuk.'))
+          ? const Center(child: Text("Belum ada pesanan masuk."))
           : ListView.builder(
               itemCount: _incomingOrders.length,
               itemBuilder: (context, index) {
@@ -59,12 +76,12 @@ class _DriverScreenState extends State<DriverScreen> {
                   margin: const EdgeInsets.all(8.0),
                   child: ListTile(
                     leading: const Icon(Icons.motorcycle, color: Colors.blue, size: 40),
-                    title: Text('Jemput: ${order['pickup']}'),
-                    subtitle: Text('Tujuan: ${order['destination']}'),
+                    title: Text("Jemput: ${order["pickup"]}"),
+                    subtitle: Text("Tujuan: ${order["destination"]}"),
                     trailing: ElevatedButton(
-                      onPressed: () => _terimaOrder(order['orderId']!),
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-                      child: const Text('Ambil', style: TextStyle(color: Colors.white)),
+                      onPressed: () => _terimaOrder(order["orderId"]),
+                      child: const Text("Ambil", style: TextStyle(color: Colors.white)),
                     ),
                   ),
                 );
